@@ -12,7 +12,7 @@ Capybara Runner is a fun and engaging game where you control a capybara to avoid
 
 ## Demo
 
-Check out the live demo [here]([#](https://omarko-dev.github.io/Hoppibara/)).
+Check out the live demo [here]((https://omarko-dev.github.io/Hoppibara/)).
 
 ## How to Play
 
