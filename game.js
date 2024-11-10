@@ -80,6 +80,22 @@ let obstacleList = [];
 let windowList = [];
 let floorX = 0;
 
+function preloadImages(images, callback) {
+    let loadedImages = 0;
+    const totalImages = images.length;
+
+    images.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => {
+            loadedImages++;
+            if (loadedImages === totalImages) {
+                callback();
+            }
+        };
+    });
+}
+
 function spawnObstacle() {
     const obstacle = obstacles[Math.floor(Math.random() * obstacles.length)];
     let size;
@@ -297,6 +313,10 @@ window.addEventListener('keyup', (e) => {
 });
 
 resizeCanvas(); // Ensure canvas is resized initially
-spawnObstacle(); // Start spawning obstacles
-windowInterval = setInterval(spawnWindow, 3000); // Spawn window every 3 seconds
-gameLoop();
+
+// Preload images and start the game
+preloadImages([...capybaraImages, ...obstacleImages, windowImageSrc, floorBackgroundSrc], () => {
+    spawnObstacle(); // Start spawning obstacles
+    windowInterval = setInterval(spawnWindow, 3000); // Spawn window every 3 seconds
+    gameLoop();
+});
