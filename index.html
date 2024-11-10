@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capybara Runner</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@700&display=swap');
+        body {
+            background-color: #ffd391;
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: 'Quicksand', sans-serif;
+            font-size: 24px;
+            color: black;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="message">Use A and D to move, and Space to jump</div>
+    <script src="game.js"></script>
+    <script>
+        // Remove the message after 3 seconds
+        setTimeout(() => {
+            const message = document.getElementById('message');
+            if (message) {
+                message.style.display = 'none';
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
