@@ -93,6 +93,13 @@ function preloadImages(images, callback) {
                 callback();
             }
         };
+        img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            loadedImages++;
+            if (loadedImages === totalImages) {
+                callback();
+            }
+        };
     });
 }
 
