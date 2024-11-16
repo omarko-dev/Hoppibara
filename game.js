@@ -27,10 +27,13 @@ const gravity = 0.5;
 let gameOver = false;
 let score = 0;
 let bestScore = 0;
-let obstacleSpeed = 5;
+let obstacleSpeed = 5; // Adjusted initial speed
 const capybaraWidth = 150;
 const capybaraHeight = 150;
-const moveSpeed = 10; // Increased movement speed
+const moveSpeed = 7; // Adjusted movement speed
+let rotationAngle = 0; // Rotation angle for flip animation
+let jumpDuration = 0; // Duration of the jump
+let jumpStartY = 0; // Starting Y position of the jump
 
 let keys = {
     left: false,
@@ -38,7 +41,10 @@ let keys = {
 };
 
 let obstacleTimeout;
-let windowInterval;
+let windowDistance = 1300; // Increased distance between windows
+let minSpawnInterval = 2000; // Adjusted minimum spawn interval in milliseconds
+let maxSpawnInterval = 3000; // Adjusted maximum spawn interval in milliseconds
+const minDistanceBetweenObstacles = 400; // Adjusted minimum distance between consecutive obstacles
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -96,9 +102,6 @@ function preloadImages(images, callback) {
         img.onerror = () => {
             console.error(`Failed to load image: ${src}`);
             loadedImages++;
-            if (loadedImages === totalImages) {
-                callback();
-            }
         };
     });
 }
@@ -116,16 +119,71 @@ function spawnObstacle() {
         size = 150; // Default size for other obstacles
     }
     const yPosition = canvas.height - 200 - size; // Place obstacles on top of the floor background
+
+    // Ensure minimum distance between consecutive obstacles
+    if (obstacleList.length > 0) {
+        const lastObstacle = obstacleList[obstacleList.length - 1];
+        if (canvas.width - lastObstacle.x < minDistanceBetweenObstacles) {
+            obstacleTimeout = setTimeout(spawnObstacle, minSpawnInterval);
+            return;
+        }
+    }
+
     obstacleList.push({ img: obstacle, x: canvas.width, y: yPosition, width: size, height: size });
     console.log('Obstacle spawned');
-    const nextSpawn = Math.random() * 2000 + 1000; // Randomize spawn interval between 1 and 3 seconds
+
+    // Adjust spawn interval based on the number of obstacles on the screen
+    let nextSpawn = Math.random() * (maxSpawnInterval - minSpawnInterval) + minSpawnInterval;
+
     obstacleTimeout = setTimeout(spawnObstacle, nextSpawn);
 }
 
 function spawnWindow() {
     const yPosition = canvas.height - 680; // Adjusted y position for windows
+
+    // Ensure consistent distance between windows
+    if (windowList.length > 0) {
+        const lastWindow = windowList[windowList.length - 1];
+        if (canvas.width - lastWindow.x < windowDistance) {
+            return;
+        }
+    }
+
     windowList.push({ img: windowImage, x: canvas.width, y: yPosition, width: 690, height: 480 }); // Slightly smaller window size
     console.log('Window spawned');
+}
+
+function gameLoop() {
+    if (gameOver) {
+        if (score > bestScore) {
+            bestScore = score;
+        }
+        drawGameOver();
+        return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawWindows(); // Draw windows in the background
+    drawGround();
+    drawCapybara();
+    drawObstacles();
+    updateCapybara();
+    checkCollision();
+    drawScore();
+    score++;
+    if (score % 200 === 0) { // Increase speed every 200 points
+        obstacleSpeed += 0.25; // More gradual speed increase
+    }
+    if (score % 400 === 0) { // Decrease spawn interval every 400 points
+        minSpawnInterval = Math.max(1000, minSpawnInterval - 200); // Ensure minSpawnInterval doesn't go below 1000ms
+        maxSpawnInterval = Math.max(2000, maxSpawnInterval - 200); // Ensure maxSpawnInterval doesn't go below 2000ms
+    }
+    if (obstacleList.length > 50) { // Limit the number of obstacles
+        obstacleList.shift();
+    }
+    spawnWindow(); // Ensure windows are spawned at a consistent distance
+    requestAnimationFrame(gameLoop);
+    console.log('Game loop running');
 }
 
 function drawGround() {
@@ -133,7 +191,7 @@ function drawGround() {
     ctx.fillRect(0, canvas.height - 100, canvas.width, 100); // White area below the ground line
     ctx.drawImage(floorBackground, floorX, canvas.height - 200, canvas.width, 100); // Floor background
     ctx.drawImage(floorBackground, floorX + canvas.width, canvas.height - 200, canvas.width, 100); // Looping floor background
-    floorX -= obstacleSpeed;
+    floorX -= obstacleSpeed / 2; // Adjust ground speed to be slower
     if (floorX <= -canvas.width) {
         floorX = 0;
     }
@@ -147,13 +205,17 @@ function drawGround() {
 }
 
 function drawCapybara() {
-    ctx.drawImage(capybara, capybaraX, capybaraY, capybaraWidth, capybaraHeight); // Bigger capybara
+    ctx.save();
+    ctx.translate(capybaraX + capybaraWidth / 2, capybaraY + capybaraHeight / 2); // Move to the center of the capybara
+    ctx.rotate(rotationAngle * Math.PI / 180); // Rotate the capybara
+    ctx.drawImage(capybara, -capybaraWidth / 2, -capybaraHeight / 2, capybaraWidth, capybaraHeight); // Draw the capybara
+    ctx.restore();
     console.log('Capybara drawn');
 }
 
 function updateCapybara() {
     capybaraFrame++;
-    if (capybaraFrame % 5 === 0) { // Faster animation
+    if (capybaraFrame % 10 === 0) { // Adjust animation speed to be consistent and slower
         capybaraIndex = (capybaraIndex + 1) % capybaraImages.length;
         capybara.src = capybaraImages[capybaraIndex];
     }
@@ -161,10 +223,12 @@ function updateCapybara() {
     if (isJumping) {
         capybaraY -= jumpSpeed;
         jumpSpeed -= gravity;
+        rotationAngle += 360 / jumpDuration; // Spread rotation evenly over the entire jump
         if (capybaraY >= canvas.height - 200 - capybaraHeight) {
             capybaraY = canvas.height - 200 - capybaraHeight;
             isJumping = false;
             jumpSpeed = 0;
+            rotationAngle = 0; // Reset rotation angle
         }
     }
 
@@ -202,14 +266,15 @@ function checkCollision() {
     for (let i = 0; i < obstacleList.length; i++) {
         const obstacle = obstacleList[i];
         if (
-            capybaraX < obstacle.x + obstacle.width * 0.8 && // Smaller hitbox
-            capybaraX + capybaraWidth > obstacle.x + obstacle.width * 0.2 && // Smaller hitbox
-            capybaraY < obstacle.y + obstacle.height * 0.8 && // Smaller hitbox
-            capybaraY + capybaraHeight > obstacle.y + obstacle.height * 0.2 // Smaller hitbox
+            capybaraX < obstacle.x + obstacle.width * 0.8 &&
+            capybaraX + capybaraWidth > obstacle.x + obstacle.width * 0.2 &&
+            capybaraY < obstacle.y + obstacle.height * 0.8 &&
+            capybaraY + capybaraHeight > obstacle.y + obstacle.height * 0.2
         ) {
-            console.log('Collision detected!');
             gameOver = true;
-            break;
+            clearTimeout(obstacleTimeout);
+            console.log('Collision detected');
+            return;
         }
     }
 }
@@ -218,7 +283,7 @@ function drawScore() {
     ctx.font = 'bold 36px Quicksand'; // Bigger font size
     ctx.fillStyle = 'black';
     ctx.textAlign = 'center';
-    ctx.fillText(`${score}`, canvas.width / 2, 50); // Move score down a bit
+    ctx.fillText(`${Math.floor(score / 10)}`, canvas.width / 2, 50); // Move score down a bit and slow down score increment
 }
 
 function drawGameOver() {
@@ -246,50 +311,19 @@ function resetGame() {
     capybaraY = canvas.height - 200 - capybaraHeight;
     capybaraFrame = 0;
     isJumping = false;
-    jumpSpeed = 0;
+    jumpSpeed = 18; // Adjusted jump speed for slightly lower jump height
+    rotationAngle = 0; // Reset rotation angle
     gameOver = false;
     score = 0;
-    obstacleSpeed = 5;
+    obstacleSpeed = 5; // Reset initial speed
     obstacleList = [];
     windowList = [];
     floorX = 0;
+    minSpawnInterval = 2000; // Reset spawn intervals
+    maxSpawnInterval = 3000;
     clearTimeout(obstacleTimeout);
-    clearInterval(windowInterval);
     spawnObstacle(); // Start spawning obstacles
-    windowInterval = setInterval(spawnWindow, 3000); // Spawn window every 3 seconds
     gameLoop();
-}
-
-function gameLoop() {
-    if (gameOver) {
-        if (score > bestScore) {
-            bestScore = score;
-        }
-        drawGameOver();
-        return;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawWindows(); // Draw windows in the background
-    drawGround();
-    drawCapybara();
-    drawObstacles();
-    updateCapybara();
-    checkCollision();
-    drawScore();
-    score++;
-    if (score % 100 === 0) { // Increase speed every 100 points
-        obstacleSpeed += 0.5;
-    }
-    if (score % 200 === 0) { // Increase spawn rate every 200 points
-        clearTimeout(obstacleTimeout);
-        spawnObstacle();
-    }
-    if (obstacleList.length > 50) { // Limit the number of obstacles
-        obstacleList.shift();
-    }
-    requestAnimationFrame(gameLoop);
-    console.log('Game loop running');
 }
 
 window.addEventListener('keydown', (e) => {
@@ -298,8 +332,10 @@ window.addEventListener('keydown', (e) => {
             resetGame();
         } else if (!isJumping) {
             isJumping = true;
-            jumpSpeed = 15; // Lower jump
-            console.log('Capybara jumped');
+            jumpSpeed = 18; // Adjusted jump speed for slightly lower jump height
+            rotationAngle = 0; // Reset rotation angle at the start of the jump
+            jumpStartY = capybaraY; // Record the starting Y position of the jump
+            jumpDuration = 2 * jumpSpeed / gravity; // Calculate the total duration of the jump
         }
     }
     if (e.code === 'KeyA') {
@@ -323,7 +359,9 @@ resizeCanvas(); // Ensure canvas is resized initially
 
 // Preload images and start the game
 preloadImages([...capybaraImages, ...obstacleImages, windowImageSrc, floorBackgroundSrc], () => {
-    spawnObstacle(); // Start spawning obstacles
-    windowInterval = setInterval(spawnWindow, 3000); // Spawn window every 3 seconds
-    gameLoop();
+    loadingScreen.classList.add('fade-out'); // Add fade-out class to loading screen
+    setTimeout(() => {
+        loadingScreen.style.display = 'none'; // Hide the loading screen after the fade-out transition
+        resetGame(); // Start the game by resetting it
+    }, 1000); // Match the duration of the CSS transition
 });
