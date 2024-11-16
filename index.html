@@ -14,6 +14,46 @@
         canvas {
             display: block;
         }
+        #loadingScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffd391;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+            transition: opacity 1s ease-out; /* Add transition for smooth fade-out */
+        }
+        #loadingBarContainer {
+            width: 80%;
+            background-color: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px; /* Add margin to ensure space between loading bar and capybara */
+        }
+        #loadingBar {
+            width: 0;
+            height: 20px;
+            background-color: #ffb347; /* Light orange color */
+            border-radius: 10px;
+        }
+        #loadingText {
+            font-family: 'Quicksand', sans-serif;
+            font-size: 24px;
+            color: white;
+            margin-top: 10px;
+        }
+        #loadingCapybara {
+            width: 300px; /* Adjust size as needed */
+            height: auto;
+            position: absolute;
+            bottom: 0; /* Ensure no gap between the image and the corner */
+            left: 0; /* Ensure no gap between the image and the corner */
+        }
         #message {
             position: absolute;
             top: 50%;
@@ -26,21 +66,117 @@
             padding: 10px;
             border-radius: 5px;
             text-align: center;
+            transition: opacity 1s ease-out; /* Add transition for smooth fade-out */
+        }
+        .fade-out {
+            opacity: 0; /* Set opacity to 0 for fade-out effect */
+        }
+        #musicToggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background-color: #ffb347; /* Light orange color */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1001;
+        }
+        #musicToggle img {
+            width: 30px;
+            height: 30px;
         }
     </style>
 </head>
 <body>
+    <div id="loadingScreen">
+        <img id="loadingCapybara" src="assets/loading-capybara.png" alt="Capybara">
+        <div id="loadingBarContainer">
+            <div id="loadingBar"></div>
+        </div>
+        <div id="loadingText">Loading...</div>
+    </div>
     <canvas id="gameCanvas"></canvas>
     <div id="message">Use A and D to move, and Space to jump</div>
+    <div id="musicToggle">
+        <img id="musicIcon" src="assets/no-volume.png" alt="Music Toggle">
+    </div>
+    <audio id="backgroundMusic" src="assets/background-music.mp3" loop></audio>
     <script src="game.js"></script>
     <script>
-        // Remove the message after 3 seconds
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingBar = document.getElementById('loadingBar');
+        const loadingText = document.getElementById('loadingText');
+        const musicToggle = document.getElementById('musicToggle');
+        const musicIcon = document.getElementById('musicIcon');
+        const backgroundMusic = document.getElementById('backgroundMusic');
+        let isMusicPlaying = false;
+
+        function updateLoadingBar(percentage) {
+            loadingBar.style.width = percentage + '%';
+            loadingText.textContent = 'Loading... ' + percentage + '%';
+        }
+
+        function preloadImages(images, callback) {
+            let loadedImages = 0;
+            const totalImages = images.length;
+
+            images.forEach(src => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => {
+                    loadedImages++;
+                    updateLoadingBar(Math.floor((loadedImages / totalImages) * 100));
+                    if (loadedImages === totalImages) {
+                        callback();
+                    }
+                };
+                img.onerror = () => {
+                    console.error(`Failed to load image: ${src}`);
+                    loadedImages++;
+                    updateLoadingBar(Math.floor((loadedImages / totalImages) * 100));
+                    if (loadedImages === totalImages) {
+                        callback();
+                    }
+                };
+            });
+        }
+
+        // Preload images and start the game
+        preloadImages([...capybaraImages, ...obstacleImages, windowImageSrc, floorBackgroundSrc], () => {
+            loadingScreen.classList.add('fade-out'); // Add fade-out class to loading screen
+            setTimeout(() => {
+                loadingScreen.style.display = 'none'; // Hide the loading screen after the fade-out transition
+                resetGame(); // Start the game by resetting it
+            }, 1000); // Match the duration of the CSS transition
+        });
+
+        // Apply fade-out effect after 3 seconds
         setTimeout(() => {
             const message = document.getElementById('message');
             if (message) {
-                message.style.display = 'none';
+                message.classList.add('fade-out');
+                // Remove the message element from the DOM after the fade-out transition
+                setTimeout(() => {
+                    message.remove();
+                }, 1000); // Match the duration of the CSS transition
             }
         }, 3000);
+
+        // Toggle background music
+        musicToggle.addEventListener('click', () => {
+            if (isMusicPlaying) {
+                backgroundMusic.pause();
+                musicIcon.src = 'assets/no-volume.png';
+            } else {
+                backgroundMusic.play();
+                musicIcon.src = 'assets/volume.png';
+            }
+            isMusicPlaying = !isMusicPlaying;
+        });
     </script>
 </body>
 </html>
